@@ -3,10 +3,11 @@
 ## Purpose
 
 A central repository of reusable developer tooling assets:
-- **Git workflow enforcement** (hooks + CI workflows)
-- **Document templates** (PR template, RCA template)
+- **Git workflow enforcement** (hooks installer + CI workflows)
+- **Document templates** (PR template, RCA template, CONTRIBUTING guide)
+- **Specs** (specifications and design documents)
 
-These files are copied or installed into other projects to enforce consistent engineering standards across the org.
+Files are copied or installed into other projects to enforce consistent engineering standards across the org.
 
 ---
 
@@ -14,51 +15,73 @@ These files are copied or installed into other projects to enforce consistent en
 
 ```
 ai-skills/
-├── CONTEXT.md                          ← this file
-├── pull_request_template.md            ← GitHub PR template (AI-agent ready)
-├── RCA_Template.md                     ← Root cause analysis postmortem template
-└── github-flow/
-    ├── hooks-repo/
-    │   └── install.sh                  ← Git hooks installer (curl-installable)
-    ├── .githooks/
-    │   ├── commit-msg                  ← Git hook: enforces commit message format
-    │   └── pre-push                    ← Git hook: enforces branch naming convention
-    └── .github/
-        └── workflows/
-            ├── branch-validation.yml   ← GitHub Actions: validates branch names on push/PR
-            └── commit-validation.yml   ← GitHub Actions: validates commit messages on push/PR
+├── CONTEXT.md                              ← this file
+├── CLAUDE.md                               ← Claude Code instructions for this repo
+├── LICENSE
+├── README.md
+├── setup/
+│   ├── github/
+│   │   ├── install.sh                      ← Runs all 3 GitHub setup scripts in one command
+│   │   ├── CONTRIBUTING.md                 ← Developer onboarding guide (Git workflow standards)
+│   │   ├── githooks.sh                     ← Installs Git hooks only (clones repo → .githooks/)
+│   │   ├── setup-workflows.sh              ← Installs GitHub Actions workflows only
+│   │   ├── setup-pr-template.sh            ← Installs GitHub PR template only
+│   │   ├── templates/
+│   │   │   └── pull_request_template.md    ← GitHub PR template (AI-agent ready)
+│   │   └── workflows/
+│   │       ├── branch-validation.yml       ← GitHub Actions: validates branch names on push/PR
+│   │       └── commit-validation.yml       ← GitHub Actions: validates commit messages on push/PR
+│   └── rca/
+│       ├── RCA_Template.md                 ← Root cause analysis postmortem template
+│       └── install.sh                    ← Downloads RCA template to templates/ in target project
+└── specs/                                  ← Specification documents (currently empty)
 ```
 
 ---
 
 ## File Details
 
-### Templates
+### Setup Scripts
+
+Each script is independently curl-installable and idempotent (safe to re-run for updates).
+
+| Script | What it installs | Target location in project |
+|--------|-----------------|---------------------------|
+| `setup/github/install.sh` | Runs all 3 GitHub scripts below | — |
+| `setup/github/githooks.sh` | Git hooks (clones this repo → `.githooks/`) | `.githooks/` + `core.hooksPath` |
+| `setup/github/setup-workflows.sh` | GitHub Actions workflow files | `.github/workflows/` |
+| `setup/github/setup-pr-template.sh` | GitHub PR template | `.github/pull_request_template.md` |
+| `setup/rca/install.sh` | RCA postmortem template | `templates/RCA_Template.md` |
+
+**Install everything (recommended):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/siddhant-albertinvent/ai-skills/main/setup/github/install.sh | bash
+```
+
+**Install individually:**
+```bash
+# Git hooks only
+curl -fsSL https://raw.githubusercontent.com/siddhant-albertinvent/ai-skills/main/setup/github/githooks.sh | bash
+
+# GitHub Actions workflows only
+curl -fsSL https://raw.githubusercontent.com/siddhant-albertinvent/ai-skills/main/setup/github/setup-workflows.sh | bash
+
+# PR template only
+curl -fsSL https://raw.githubusercontent.com/siddhant-albertinvent/ai-skills/main/setup/github/setup-pr-template.sh | bash
+
+# RCA template only
+curl -fsSL https://raw.githubusercontent.com/siddhant-albertinvent/ai-skills/main/setup/rca/install.sh | bash
+```
+
+### Templates & Assets
 
 | File | Purpose |
 |------|---------|
-| `pull_request_template.md` | Structured PR template with AI-agent instructions. Place at `.github/pull_request_template.md` in target repos. |
-| `RCA_Template.md` | Blameless postmortem template using `{{PLACEHOLDER}}` syntax. Fill with incident details. |
+| `setup/github/templates/pull_request_template.md` | Structured PR template with AI-agent instructions. Installed to `.github/pull_request_template.md`. |
+| `setup/rca/RCA_Template.md` | Blameless postmortem template using `{{PLACEHOLDER}}` syntax. Installed to `templates/RCA_Template.md`. |
+| `setup/github/CONTRIBUTING.md` | Full developer onboarding guide covering branch naming, commit conventions, Git workflow, and FAQ. Copy to target repos. |
 
-### Git Hooks (`github-flow/.githooks/`)
-
-| File | Trigger | Enforces |
-|------|---------|----------|
-| `commit-msg` | Every commit | Linear ticket ID (e.g. `ENG-123`) + `[skip ci]` present in message. Skips merge/revert commits. |
-| `pre-push` | Every push | Branch name matches `(feat\|bug\|hotfix)/<TICKET-ID>-<short-desc>`. Protected branches are exempt. |
-
-### Install Script (`github-flow/hooks-repo/`)
-
-| File | Usage |
-|------|-------|
-| `install.sh` | Served via `curl`. Clones this repo into `.githooks/` in the target project and sets `core.hooksPath`. Re-running it pulls latest hooks. |
-
-**One-liner install for any project:**
-```bash
-curl -fsSL https://raw.githubusercontent.com/siddhant-albertinvent/ai-skills/main/install.sh | bash
-```
-
-### GitHub Actions Workflows (`github-flow/.github/workflows/`)
+### GitHub Actions Workflows (`setup/github/workflows/`)
 
 | File | Trigger | What it checks |
 |------|---------|----------------|
