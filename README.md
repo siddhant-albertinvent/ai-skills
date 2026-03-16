@@ -18,7 +18,7 @@ curl -fsSL https://raw.githubusercontent.com/siddhant-albertinvent/ai-skills/mai
 
 **Git hooks** (enforces commit message format and branch naming locally):
 ```bash
-curl -fsSL https://raw.githubusercontent.com/siddhant-albertinvent/ai-skills/main/setup/github/githooks.sh | bash
+curl -fsSL https://raw.githubusercontent.com/siddhant-albertinvent/ai-skills/main/setup/github/hooks/githooks.sh | bash
 ```
 
 **GitHub Actions workflows** (enforces commit messages and branch naming on push/PR):
@@ -42,11 +42,11 @@ curl -fsSL https://raw.githubusercontent.com/siddhant-albertinvent/ai-skills/mai
 
 | Script | Installs to | Purpose |
 |--------|-------------|---------|
-| `install.sh` | — | Runs all 3 GitHub scripts |
-| `githooks.sh` | `.githooks/` | Git hooks: commit-msg, pre-push |
-| `setup-workflows.sh` | `.github/workflows/` | branch-validation.yml, commit-validation.yml |
-| `setup-pr-template.sh` | `.github/` | pull_request_template.md |
-| `setup-rca.sh` | `templates/` | RCA_Template.md |
+| `setup/github/install.sh` | — | Runs all 3 GitHub scripts |
+| `setup/github/hooks/githooks.sh` | `.githooks/` | Git hooks: commit-msg, pre-push |
+| `setup/github/setup-workflows.sh` | `.github/workflows/` | branch-validation.yml, commit-validation.yml |
+| `setup/github/setup-pr-template.sh` | `.github/` | pull_request_template.md |
+| `setup/rca/install.sh` | `templates/` | RCA_Template.md |
 
 ---
 

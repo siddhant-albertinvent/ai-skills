@@ -1,0 +1,188 @@
+name: PR Validation
+
+on:
+  pull_request:
+    types: [opened, edited, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  ai-enhance-pr:
+    name: AI PR Enhancement
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened' || github.event.action == 'reopened'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enhance PR with Claude
+        uses: actions/github-script@v7
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const enhancePR = require('./.github/scripts/enhance-pr.js');
+            await enhancePR({ github, context, core });
+
+  validate-pr:
+    name: Validate PR Title & Description
+    runs-on: ubuntu-latest
+    needs: [ai-enhance-pr]
+    if: always()
+    steps:
+      - name: Validate Linear Ticket ID in PR Title
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Re-fetch the latest PR data (Claude may have updated it)
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+            });
+
+            const prTitle = pr.title;
+            const prBody = pr.body || '';
+
+            const errors = [];
+
+            // Check for Linear ticket ID in PR title
+            // Supports prefixes: EX, SUP, DE (case-insensitive)
+            const ticketPattern = /\[(EX|SUP|DE)-\d+\]/i;
+            if (!ticketPattern.test(prTitle)) {
+              errors.push(
+                '**Missing Linear Ticket ID in PR title.**\n' +
+                'PR title must include a Linear ticket ID in the format: `[EX-123]`, `[SUP-456]`, or `[DE-789]`.\n' +
+                'Example: `[EX-123] Add localization support for new entity type`'
+              );
+            }
+
+            // Check for a meaningful description
+            // Strip HTML comments and template placeholders, then check length
+            const strippedBody = prBody
+              .replace(/<!--[\s\S]*?-->/g, '')  // Remove HTML comments
+              .replace(/^#+\s.*$/gm, '')         // Remove markdown headers
+              .replace(/^-\s*\[\s?\]\s.*$/gm, '') // Remove empty checkboxes
+              .replace(/^\s*-\s*$/gm, '')        // Remove empty list items
+              .replace(/\*\*Ticket:\*\*\s*/g, '') // Remove template labels
+              .trim();
+
+            if (strippedBody.length < 50) {
+              errors.push(
+                '**PR description is too short or missing.**\n' +
+                'Please provide a meaningful description covering:\n' +
+                '- **Summary**: What does this PR do and why?\n' +
+                '- **Changes**: Key changes made\n' +
+                '- **Impact**: What parts of the system are affected?\n' +
+                '- **Testing**: How were these changes tested?'
+              );
+            }
+
+            // Check that Summary section has content
+            const summaryMatch = prBody.match(/## Summary\s*\n([\s\S]*?)(?=\n##|$)/);
+            const summaryContent = summaryMatch
+              ? summaryMatch[1].replace(/<!--[\s\S]*?-->/g, '').trim()
+              : '';
+
+            if (summaryContent.length < 10) {
+              errors.push(
+                '**Summary section is empty.**\n' +
+                'Please fill in the Summary section with a clear description of what this PR does and why.'
+              );
+            }
+
+            if (errors.length > 0) {
+              const body =
+                '## ⚠️ PR Validation Failed\n\n' +
+                errors.map((e, i) => `### ${i + 1}. ${e}`).join('\n\n') +
+                '\n\n---\n' +
+                '*Please update your PR to fix the above issues. This check will re-run automatically.*';
+
+              // Post or update a comment
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+              });
+
+              const botComment = comments.find(
+                (c) => c.user.type === 'Bot' && c.body.includes('PR Validation Failed')
+              );
+
+              if (botComment) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.pull_request.number,
+                  body,
+                });
+              }
+
+              core.setFailed('PR validation failed. See comment on PR for details.');
+            } else {
+              // Remove previous validation comment if it exists
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+              });
+
+              const botComment = comments.find(
+                (c) => c.user.type === 'Bot' && c.body.includes('PR Validation Failed')
+              );
+
+              if (botComment) {
+                await github.rest.issues.deleteComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                });
+              }
+
+              core.info('PR validation passed.');
+            }
+
+  assign-reviewers:
+    name: Assign Lead Reviewers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request Reviews from Leads
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prAuthor = context.payload.pull_request.user.login;
+
+            // Lead reviewers — exclude the PR author to avoid self-review
+            const leads = [
+              'SwaAbhi',
+              'siddhant-albertinvent',
+              'adityainvent',
+            ].filter((user) => user.toLowerCase() !== prAuthor.toLowerCase());
+
+            if (leads.length === 0) {
+              core.info('PR author is the only lead. Skipping reviewer assignment.');
+              return;
+            }
+
+            try {
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                reviewers: leads,
+              });
+              core.info(`Assigned reviewers: ${leads.join(', ')}`);
+            } catch (error) {
+              core.warning(`Failed to assign reviewers: ${error.message}`);
+            }

@@ -39,7 +39,7 @@ fi
 
 # ─── Step 1: Git Hooks ────────────────────────────────────────────────────────
 echo -e "${BOLD}[1/3] Installing Git hooks...${RESET}"
-bash <(curl -fsSL "$RAW_BASE/githooks.sh")
+bash <(curl -fsSL "$RAW_BASE/hooks/githooks.sh")
 
 # ─── Step 2: GitHub Actions Workflows ────────────────────────────────────────
 echo -e "${BOLD}[2/3] Installing GitHub Actions workflows...${RESET}"
