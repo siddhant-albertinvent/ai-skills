@@ -1,0 +1,65 @@
+#!/bin/bash
+# =============================================================================
+# pre-push hook
+# Enforces branch naming conventions before any push:
+#
+#   Feature:  feat/<ticketId>-<short-desc>     e.g. feat/ENG-123-add-login
+#   Bug:      bug/<ticketId>-<short-desc>      e.g. bug/ENG-456-fix-redirect
+#   Hotfix:   hotfix/<ticketId>-<short-desc>   e.g. hotfix/ENG-789-critical-fix
+#
+# Protected branches (exempt from validation):
+#   main, master, develop, integration, dev, staging, qa, release/*, merge*
+# Install: run ./setup-hooks.sh from the repo root
+# =============================================================================
+
+current_branch=$(git symbolic-ref HEAD 2>/dev/null | sed 's|refs/heads/||')
+
+if [ -z "$current_branch" ]; then
+  echo "⚠️  Could not determine current branch. Skipping branch name check."
+  exit 0
+fi
+
+# ─── Skip protected branches ──────────────────────────────────────────────────
+PROTECTED_PATTERN='^(main|master|develop|integration|dev|staging|qa|release/.*|merge.*)$'
+if echo "$current_branch" | grep -qE "$PROTECTED_PATTERN"; then
+  echo "✅ Protected branch '$current_branch' — skipping branch name validation."
+  exit 0
+fi
+
+# ─── Valid branch pattern ─────────────────────────────────────────────────────
+# Allows: feat/, bug/, hotfix/ followed by TICKET-ID- and a kebab-case description
+VALID_PATTERN='^(feat|bug|hotfix)/[A-Z]+-[0-9]+-[a-z0-9][a-z0-9-]*$'
+
+if echo "$current_branch" | grep -qE "$VALID_PATTERN"; then
+  echo "✅ Branch name '$current_branch' is valid."
+  exit 0
+fi
+
+# ─── Validation failed ────────────────────────────────────────────────────────
+echo ""
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║               ❌  PUSH REJECTED                              ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
+echo "  Branch: '$current_branch'"
+echo "  does not follow the required naming convention."
+echo ""
+echo "  ✅ Required format:"
+echo "     feat/<ticketId>-<short-desc>     → Feature work"
+echo "     bug/<ticketId>-<short-desc>      → Bug fixes"
+echo "     hotfix/<ticketId>-<short-desc>   → Hotfixes"
+echo ""
+echo "  Rules:"
+echo "    • Prefix must be feat, bug, or hotfix"
+echo "    • Ticket ID must be uppercase letters + number (e.g., ENG-123)"
+echo "    • Description must be lowercase, hyphen-separated"
+echo ""
+echo "  Examples:"
+echo "     feat/ENG-123-add-oauth-login"
+echo "     bug/PROJ-456-fix-checkout-redirect"
+echo "     hotfix/ENG-789-patch-payment-crash"
+echo ""
+echo "  Rename your branch with:"
+echo "     git branch -m <new-branch-name>"
+echo ""
+exit 1

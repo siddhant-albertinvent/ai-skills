@@ -1,0 +1,67 @@
+#!/bin/bash
+# =============================================================================
+# commit-msg hook
+# Enforces:
+#   1. Linear ticket ID present (e.g., ENG-123, PROJ-456)
+#   2. [skip ci] present in the commit message
+#
+# Install: run ./setup-hooks.sh from the repo root
+# =============================================================================
+
+commit_msg_file=$1
+commit_msg=$(cat "$commit_msg_file")
+
+# Strip leading/trailing whitespace
+commit_msg_trimmed=$(echo "$commit_msg" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+# ─── Skip merge commits ────────────────────────────────────────────────────────
+if echo "$commit_msg_trimmed" | grep -qE '^Merge (branch|pull request|remote-tracking)'; then
+  exit 0
+fi
+
+# ─── Skip revert commits ──────────────────────────────────────────────────────
+if echo "$commit_msg_trimmed" | grep -qE '^Revert "'; then
+  exit 0
+fi
+
+ERRORS=()
+
+# ─── Rule 1: Linear ticket ID ─────────────────────────────────────────────────
+# Matches: ENG-123, PROJ-456, ABC-1, etc.
+if ! echo "$commit_msg_trimmed" | grep -qE '\b[A-Z]+-[0-9]+\b'; then
+  ERRORS+=("Missing Linear ticket ID — expected format like ENG-123 or PROJ-456")
+fi
+
+# ─── Rule 2: [skip ci] ────────────────────────────────────────────────────────
+if ! echo "$commit_msg_trimmed" | grep -qiE '\[skip ci\]'; then
+  ERRORS+=("Missing [skip ci] — all commit messages must include [skip ci]")
+fi
+
+# ─── Report ───────────────────────────────────────────────────────────────────
+if [ ${#ERRORS[@]} -gt 0 ]; then
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════╗"
+  echo "║              ❌  COMMIT MESSAGE REJECTED                     ║"
+  echo "╚══════════════════════════════════════════════════════════════╝"
+  echo ""
+  echo "  Your message:"
+  echo "  \"$commit_msg_trimmed\""
+  echo ""
+  echo "  Issues found:"
+  for err in "${ERRORS[@]}"; do
+    echo "    • $err"
+  done
+  echo ""
+  echo "  ✅ Correct format:"
+  echo "     <type>(<ticket-id>): <short description> [skip ci]"
+  echo ""
+  echo "  Examples:"
+  echo "     feat(ENG-123): add OAuth login flow [skip ci]"
+  echo "     fix(PROJ-456): resolve null pointer on checkout [skip ci]"
+  echo "     chore(ENG-789): update dependencies [skip ci]"
+  echo ""
+  exit 1
+fi
+
+echo "✅ Commit message valid."
+exit 0
