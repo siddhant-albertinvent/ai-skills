@@ -2,7 +2,7 @@
 # =============================================================================
 # setup-workflows.sh — GitHub Actions Workflows Installer
 #
-# Downloads branch-validation.yml and commit-validation.yml into
+# Downloads branch-validation.yml, commit-validation.yml, and pr-validation.yml into
 # .github/workflows/ in the target project.
 #
 # Usage (from inside any project repo):
@@ -49,6 +49,7 @@ success "  ✅ Directory ready: .github/workflows/"
 WORKFLOWS=(
   "branch-validation.yml"
   "commit-validation.yml"
+  "pr-validation.yml"
 )
 
 for workflow in "${WORKFLOWS[@]}"; do
@@ -65,6 +66,7 @@ echo ""
 echo "  Installed workflows:"
 echo "    • branch-validation.yml  → Validates branch names on push / PR"
 echo "    • commit-validation.yml  → Validates commit messages on push / PR"
+echo "    • pr-validation.yml      → Validates PR title, description, and assigns reviewers"
 echo ""
 echo "  Commit and push .github/workflows/ to activate them in GitHub Actions."
 echo ""
